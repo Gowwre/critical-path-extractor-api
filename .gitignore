@@ -1,0 +1,142 @@
+# .NET Core / F# Build Artifacts
+bin/
+obj/
+out/
+*.dll
+*.exe
+*.pdb
+*.cache
+*.ilk
+*.meta
+*.obj
+*.pch
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*.log
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.svclog
+*.scc
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# Visual Studio
+.vs/
+.vscode/
+*.sln.iml
+
+# Rider / IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# F# Interactive
+*.fsx.log
+*.fsx.lock
+
+# Paket
+.paket/
+paket-files/
+*.paket.template
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# ASP.NET
+wwwroot/lib/
+node_modules/
+*.min.js
+*.min.css
+
+# Test Results
+TestResults/
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+
+# BenchmarkDotNet
+BenchmarkDotNet.Artifacts/
+
+# DotCover
+*.dotCover
+
+# NCrunch
+_NCrunch_*
+.*crunch*.local.xml
+nCrunchTemp_*
+
+# Coverlet
+**/coverage*.json
+**/coverage*.xml
+**/coverage*.info
+
+# Local development
+appsettings.Development.json
+appsettings.Local.json
+*.Development.json
+secrets.json
+*.secret.*
+.env
+.env.local
+.env.*.local
+
+# Docker
+.docker/
+
+# Misc
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+*.bak
+*.orig
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+temp/
+tmp/
+
+# Logs
+logs/
+*.log
+log/
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Certificates
+*.pfx
+*.p12
+*.key
+*.crt
+*.pem
