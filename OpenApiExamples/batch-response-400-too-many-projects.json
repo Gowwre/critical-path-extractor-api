@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "INVALID_INPUT",
+    "message": "Batch contains too many projects (max: 100)",
+    "affected_tasks": []
+  }
+}

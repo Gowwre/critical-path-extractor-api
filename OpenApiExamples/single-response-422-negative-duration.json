@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "NEGATIVE_DURATION",
+    "message": "Task 'A' has a negative duration",
+    "affected_tasks": ["A"]
+  }
+}

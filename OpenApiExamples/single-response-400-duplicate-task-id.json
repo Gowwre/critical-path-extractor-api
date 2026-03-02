@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "DUPLICATE_TASK_ID",
+    "message": "Duplicate task ID found: 'A'",
+    "affected_tasks": ["A"]
+  }
+}

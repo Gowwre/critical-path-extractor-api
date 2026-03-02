@@ -1,0 +1,33 @@
+{
+  "results": [
+    {
+      "id": "project-1",
+      "status": "ok",
+      "project_duration": 3,
+      "critical_path": ["A", "B"],
+      "tasks": [],
+      "near_critical_paths": [],
+      "warnings": [],
+      "meta": {
+        "task_count": 2,
+        "edge_count": 1,
+        "computation_ms": 1
+      }
+    },
+    {
+      "id": "project-2",
+      "status": "error",
+      "error": {
+        "code": "CIRCULAR_DEPENDENCY",
+        "message": "The task graph contains a cycle and cannot be analysed.",
+        "affected_tasks": ["X", "Y"]
+      }
+    }
+  ],
+  "meta": {
+    "total_projects": 2,
+    "succeeded": 1,
+    "failed": 1,
+    "total_computation_ms": 2
+  }
+}

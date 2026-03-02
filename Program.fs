@@ -19,7 +19,7 @@ module Program =
         builder
 
     let private configureServices (builder: WebApplicationBuilder) : WebApplicationBuilder =
-        builder.Services.AddOpenApi() |> ignore
+        builder.Services.AddOpenApi(OpenApiExamples.configure builder.Environment.ContentRootPath) |> ignore
         builder |> configureControllers
 
     let private configureDevelopmentOpenApi (app: WebApplication) : WebApplication =

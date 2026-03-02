@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "INVALID_INPUT",
+    "message": "Batch contains too many total tasks (max: 50000)",
+    "affected_tasks": []
+  }
+}
