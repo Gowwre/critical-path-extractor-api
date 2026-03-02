@@ -11,7 +11,7 @@ type LanguageCode =
     | Vietnamese
 
 /// <summary>
-/// Message keys for localized strings (prefixed to avoid conflicts with ValidationError)
+/// Message keys used by localized strings (prefixed to avoid conflicts with ValidationError)
 /// </summary>
 type LocalizationKey =
     | MsgUnknownDependency
@@ -41,30 +41,29 @@ module Localization =
     let parseLanguage (lang: string) : LanguageCode =
         match lang.ToLowerInvariant() with
         | "vi" | "vi-vn" | "vi_vn" -> Vietnamese
-        | _ -> English  // Default to English for any other code
+        | _ -> English  // Defaults to English on any other code
     
     /// <summary>
     /// Get language from request (query param takes priority over header)
     /// </summary>
     let getLanguage (httpContext: HttpContext) : LanguageCode =
-        // Check query parameter first
-        let (querySuccess, queryValue) = httpContext.Request.Query.TryGetValue("lang")
-        if querySuccess then
+        let queryResult = httpContext.Request.Query.TryGetValue("lang")
+        let headerResult = httpContext.Request.Headers.TryGetValue("Accept-Language")
+
+        let parsePrimaryHeader (headerValue: string) : LanguageCode =
+            headerValue.Split(',')
+            |> Array.tryHead
+            |> Option.map (fun item -> item.Trim().Split(';').[0])
+            |> Option.defaultValue "en"
+            |> parseLanguage
+
+        match queryResult with
+        | true, queryValue ->
             parseLanguage (queryValue.ToString())
-        else
-            // Check Accept-Language header
-            let (headerSuccess, headerValue) = httpContext.Request.Headers.TryGetValue("Accept-Language")
-            if headerSuccess then
-                let langValue = headerValue.ToString()
-                // Parse first preferred language
-                let primaryLang = 
-                    langValue.Split(',')
-                    |> Array.tryHead
-                    |> Option.map (fun s -> s.Trim().Split(';').[0])
-                    |> Option.defaultValue "en"
-                parseLanguage primaryLang
-            else
-                defaultLanguage
+        | false, _ ->
+            match headerResult with
+            | true, headerValue -> parsePrimaryHeader (headerValue.ToString())
+            | false, _ -> defaultLanguage
     
     /// <summary>
     /// Get localized string with optional parameters
@@ -80,7 +79,7 @@ module Localization =
                 | MsgNegativeDuration -> "Task '{0}' has a negative duration"
                 | MsgEmptyTaskList -> "Task list cannot be empty"
                 | MsgInvalidDurationUnit -> "Invalid duration unit: '{0}'. Valid values are: hours, days, weeks"
-                | MsgInternalError -> "An internal error occurred while processing the request"
+                | MsgInternalError -> "An internal error occurred during request processing"
                 | MsgDisconnectedSubgraph -> "Some tasks are not reachable from any start node"
                 | MsgZeroDurationPath -> "Some tasks have zero duration; this may affect scheduling accuracy"
                 | MsgTooManyDependencies -> "Task {0} has too many dependencies (max: {1})"
