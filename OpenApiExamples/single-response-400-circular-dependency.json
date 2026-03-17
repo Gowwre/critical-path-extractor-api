@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "CIRCULAR_DEPENDENCY",
+    "message": "The task graph contains a cycle and cannot be analysed.",
+    "affected_tasks": ["X", "Y"]
+  }
+}

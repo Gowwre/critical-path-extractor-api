@@ -10,9 +10,16 @@
     <Compile Include="Infrastructure\Localization.fs" />
     <Compile Include="Infrastructure\ThresholdValueConverter.fs" />
     <Compile Include="Infrastructure\RequestSizeLimit.fs" />
+    <Compile Include="Infrastructure\OpenApiExamples.fs" />
     <Compile Include="CpmEngine.fs" />
     <Compile Include="Controllers\CriticalPathController.fs" />
     <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="OpenApiExamples\**\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

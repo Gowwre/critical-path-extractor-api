@@ -160,4 +160,4 @@ module Types =
         | EmptyTaskList
         | InvalidDurationUnit of string
 
-    exception CpmValidationException of ValidationError
+    type AnalysisResult<'a> = Result<'a, ValidationError>

@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "GRAPH_TOO_LARGE",
+    "message": "Graph contains 10001 tasks (max: 10000)",
+    "affected_tasks": []
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "projects": [
+    {
+      "id": "website",
+      "tasks": [
+        { "id": "design", "duration": 5, "dependencies": [] },
+        { "id": "develop", "duration": 10, "dependencies": ["design"] }
+      ]
+    },
+    {
+      "id": "mobile-app",
+      "tasks": [
+        { "id": "research", "duration": 3, "dependencies": [] },
+        { "id": "prototype", "duration": 7, "dependencies": ["research"] }
+      ]
+    }
+  ]
+}

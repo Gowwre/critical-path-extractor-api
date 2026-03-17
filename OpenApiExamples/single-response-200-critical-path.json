@@ -1,0 +1,38 @@
+{
+  "project_duration": 9,
+  "duration_unit": "days",
+  "critical_path": ["A", "C", "D"],
+  "tasks": [
+    {
+      "id": "A",
+      "label": "A",
+      "duration": 3,
+      "earliest_start": 0,
+      "earliest_finish": 3,
+      "latest_start": 0,
+      "latest_finish": 3,
+      "float": 0,
+      "is_critical": true,
+      "is_near_critical": false
+    },
+    {
+      "id": "B",
+      "label": "B",
+      "duration": 2,
+      "earliest_start": 3,
+      "earliest_finish": 5,
+      "latest_start": 6,
+      "latest_finish": 8,
+      "float": 3,
+      "is_critical": false,
+      "is_near_critical": false
+    }
+  ],
+  "near_critical_paths": [],
+  "warnings": [],
+  "meta": {
+    "task_count": 4,
+    "edge_count": 4,
+    "computation_ms": 1
+  }
+}

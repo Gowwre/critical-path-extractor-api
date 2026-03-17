@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "UNKNOWN_DEPENDENCY",
+    "message": "Task 'A' references unknown dependency 'MISSING'",
+    "affected_tasks": ["A"]
+  }
+}

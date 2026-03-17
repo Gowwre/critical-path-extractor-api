@@ -1,0 +1,18 @@
+{
+  "projects": [
+    {
+      "id": "project-1",
+      "tasks": [
+        { "id": "A", "duration": 1, "dependencies": [] },
+        { "id": "B", "duration": 2, "dependencies": ["A"] }
+      ]
+    },
+    {
+      "id": "project-2",
+      "tasks": [
+        { "id": "X", "duration": 1, "dependencies": ["Y"] },
+        { "id": "Y", "duration": 1, "dependencies": ["X"] }
+      ]
+    }
+  ]
+}

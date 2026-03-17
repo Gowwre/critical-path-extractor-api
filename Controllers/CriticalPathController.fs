@@ -7,17 +7,44 @@ open CriticalPathExtractor.Types
 open CriticalPathExtractor
 open CriticalPathExtractor.Infrastructure
 
+module private HttpMapping =
+    let toErrorPayload code message affectedTasks =
+        {| error = {| code = code; message = message; affected_tasks = affectedTasks |} |}
+
+    let toObjectResult (statusCode: int) payload : IActionResult =
+        let result = ObjectResult(payload)
+        result.StatusCode <- Nullable(statusCode)
+        result :> IActionResult
+
+    let toValidationResult (lang: LanguageCode) (validationError: ValidationError) : IActionResult =
+        let payload =
+            toErrorPayload
+                (CpmEngine.getValidationErrorCode validationError)
+                (CpmEngine.getValidationErrorMessage validationError lang)
+                (CpmEngine.getValidationAffectedTasks validationError)
+
+        match CpmEngine.getValidationStatusCode validationError with
+        | 400 -> BadRequestObjectResult(payload) :> IActionResult
+        | statusCode -> toObjectResult statusCode payload
+
+    let toInternalErrorResult (lang: LanguageCode) : IActionResult =
+        toErrorPayload
+            "INTERNAL_ERROR"
+            (Localization.getStringSimple lang MsgInternalError)
+            []
+        |> toObjectResult 500
+
 /// <summary>
 /// Critical Path Method (CPM) Analysis API
-/// 
-/// Provides endpoints for analyzing project task graphs to identify critical paths,
+///
+/// Provides endpoints that analyze project task graphs to identify critical paths,
 /// calculate float values, and detect scheduling issues.
-/// 
+///
 /// Language Support:
 /// - Use ?lang= query parameter (e.g., ?lang=vi) or Accept-Language header
 /// - Supported values: en (English), vi (Vietnamese)
 /// - Query parameter takes priority over header
-/// - Defaults to English if not specified or unsupported
+/// - Defaults to English when unspecified or unsupported
 /// </summary>
 [<ApiController>]
 [<Route("v1/critical-path")>]
@@ -31,13 +58,13 @@ type CriticalPathController (logger : ILogger<CriticalPathController>) =
 
     /// <summary>
     /// Analyze a single project task graph
-    /// 
+    ///
     /// Performs CPM analysis on a project task graph to calculate:
     /// - Critical path (tasks with zero float)
-    /// - Float values for all tasks
+    /// - Float values across all tasks
     /// - Near-critical paths (within threshold)
     /// - Scheduling warnings
-    /// 
+    ///
     /// Language: Use ?lang= query parameter or Accept-Language header (en/vi)
     /// </summary>
     /// <param name="request">Project request containing tasks, dependencies, and options</param>
@@ -54,67 +81,27 @@ type CriticalPathController (logger : ILogger<CriticalPathController>) =
     [<ProducesResponseType(typeof<obj>, 413)>]
     [<ProducesResponseType(typeof<obj>, 422)>]
     [<ProducesResponseType(typeof<obj>, 500)>]
-    [<RequestSizeLimit(5L * 1024L * 1024L)>]  // 5MB limit for single requests
+    [<RequestSizeLimit(5L * 1024L * 1024L)>]  // 5MB limit on single requests
     member _.Analyze([<FromBody>] request: SingleProjectRequest) : IActionResult =
-        // Resolve language from query param or header
         let lang = Localization.getLanguage base.HttpContext
-        
+
         try
-            let result = CpmEngine.analyze request lang
-            OkObjectResult(result) :> IActionResult
+            request
+            |> CpmEngine.analyze lang
+            |> Result.map (fun analysisResult -> OkObjectResult(analysisResult) :> IActionResult)
+            |> Result.defaultWith (HttpMapping.toValidationResult lang)
         with
-        | CpmValidationException validationError ->
-            let errorCode =
-                match validationError with
-                | Types.CircularDependency _ -> "CIRCULAR_DEPENDENCY"
-                | Types.UnknownDependency _ -> "UNKNOWN_DEPENDENCY"
-                | Types.DuplicateTaskId _ -> "DUPLICATE_TASK_ID"
-                | Types.GraphTooLarge _ -> "GRAPH_TOO_LARGE"
-                | Types.NegativeDuration _ -> "NEGATIVE_DURATION"
-                | Types.EmptyTaskList -> "INVALID_INPUT"
-                | Types.InvalidDurationUnit _ -> "INVALID_INPUT"
-                | Types.InvalidInput _ -> "INVALID_INPUT"
-            
-            let affectedTasks =
-                match validationError with
-                | Types.CircularDependency tasks -> tasks
-                | Types.UnknownDependency (taskId, _) -> [taskId]
-                | Types.DuplicateTaskId taskId -> [taskId]
-                | Types.NegativeDuration taskId -> [taskId]
-                | _ -> []
-            
-            let message = CpmEngine.getValidationErrorMessage validationError lang
-            
-            let errorContent = {|
-                error = {|
-                    code = errorCode
-                    message = message
-                    affected_tasks = affectedTasks
-                |}
-            |}
-            
-            match validationError with
-            | Types.GraphTooLarge _ -> CriticalPathController.CreateObjectResult 413 errorContent :> IActionResult
-            | NegativeDuration _ -> CriticalPathController.CreateObjectResult 422 errorContent :> IActionResult
-            | _ -> BadRequestObjectResult(errorContent) :> IActionResult
-            
         | ex ->
             logger.LogError(ex, "Unexpected error during CPM analysis")
-            CriticalPathController.CreateObjectResult 500 {|
-                error = {|
-                    code = "INTERNAL_ERROR"
-                    message = Localization.getStringSimple lang MsgInternalError
-                    affected_tasks = []
-                |}
-            |} :> IActionResult
+            HttpMapping.toInternalErrorResult lang
 
     /// <summary>
     /// Analyze multiple project task graphs in batch
-    /// 
+    ///
     /// Performs CPM analysis on multiple independent project graphs.
     /// Each project is processed independently and results are returned
     /// in the same order as the input.
-    /// 
+    ///
     /// Language: Use ?lang= query parameter or Accept-Language header (en/vi)
     /// </summary>
     /// <param name="request">Batch request containing multiple project graphs</param>
@@ -127,29 +114,16 @@ type CriticalPathController (logger : ILogger<CriticalPathController>) =
     [<ProducesResponseType(typeof<BatchResult>, 200)>]
     [<ProducesResponseType(typeof<obj>, 400)>]
     [<ProducesResponseType(typeof<obj>, 500)>]
-    [<RequestSizeLimit(20L * 1024L * 1024L)>]  // 20MB limit for batch requests
+    [<RequestSizeLimit(20L * 1024L * 1024L)>]  // 20MB limit on batch requests
     member _.BatchAnalyze([<FromBody>] request: BatchRequest) : IActionResult =
-        // Resolve language from query param or header
         let lang = Localization.getLanguage base.HttpContext
-        
+
         try
-            let result = CpmEngine.analyzeBatch request lang
-            OkObjectResult(result) :> IActionResult
+            request
+            |> CpmEngine.analyzeBatch lang
+            |> Result.map (fun batchResult -> OkObjectResult(batchResult) :> IActionResult)
+            |> Result.defaultWith (HttpMapping.toValidationResult lang)
         with
-        | CpmValidationException (Types.InvalidInput msg) ->
-            BadRequestObjectResult({|
-                error = {|
-                    code = "INVALID_INPUT"
-                    message = msg
-                    affected_tasks = []
-                |}
-            |}) :> IActionResult
         | ex ->
             logger.LogError(ex, "Unexpected error during batch CPM analysis")
-            CriticalPathController.CreateObjectResult 500 {|
-                error = {|
-                    code = "INTERNAL_ERROR"
-                    message = Localization.getStringSimple lang MsgInternalError
-                    affected_tasks = []
-                |}
-            |} :> IActionResult
+            HttpMapping.toInternalErrorResult lang

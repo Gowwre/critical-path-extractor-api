@@ -1,0 +1,16 @@
+{
+  "tasks": [
+    { "id": "A", "duration": 3, "dependencies": [] },
+    { "id": "B", "duration": 2, "dependencies": ["A"] },
+    { "id": "C", "duration": 5, "dependencies": ["A"] },
+    { "id": "D", "duration": 1, "dependencies": ["B", "C"] }
+  ],
+  "options": {
+    "duration_unit": "days",
+    "near_critical_threshold": {
+      "absolute": 2,
+      "percentage": 20
+    },
+    "include_all_paths": false
+  }
+}

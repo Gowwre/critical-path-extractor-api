@@ -13,6 +13,7 @@ type RequestSizeLimitAttribute(limitInBytes: int64) =
     interface IAuthorizationFilter with
         member this.OnAuthorization(context: AuthorizationFilterContext) =
             let feature = context.HttpContext.Features.Get<IHttpMaxRequestBodySizeFeature>()
-            match feature with
+
+            match box feature with
             | null -> ()
             | _ -> feature.MaxRequestBodySize <- Nullable(this.LimitInBytes)

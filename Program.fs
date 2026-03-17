@@ -5,38 +5,46 @@ namespace CriticalPathExtractor
 open Microsoft.AspNetCore.Builder
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
-open System.Text.Json.Serialization
 open CriticalPathExtractor.Infrastructure
 open Scalar.AspNetCore
 
 module Program =
     let exitCode = 0
 
-    [<EntryPoint>]
-    let main args =
-        let builder = WebApplication.CreateBuilder(args)
+    let private configureJsonOptions (options: Microsoft.AspNetCore.Mvc.JsonOptions) : unit =
+        options.JsonSerializerOptions.Converters.Add(ThresholdValueConverter())
 
-        // Add OpenAPI support
-        builder.Services.AddOpenApi()
-        
-        builder.Services.AddControllers()
-            .AddJsonOptions(fun options ->
-                options.JsonSerializerOptions.Converters.Add(ThresholdValueConverter())
-            )
+    let private configureControllers (builder: WebApplicationBuilder) : WebApplicationBuilder =
+        builder.Services.AddControllers().AddJsonOptions(configureJsonOptions) |> ignore
+        builder
 
-        let app = builder.Build()
+    let private configureServices (builder: WebApplicationBuilder) : WebApplicationBuilder =
+        builder.Services.AddOpenApi(OpenApiExamples.configure builder.Environment.ContentRootPath) |> ignore
+        builder |> configureControllers
 
-        // Configure OpenAPI and Scalar in development
+    let private configureDevelopmentOpenApi (app: WebApplication) : WebApplication =
         match app.Environment.IsDevelopment() with
         | true ->
             app.MapOpenApi() |> ignore
             app.MapScalarApiReference() |> ignore
-        | false -> ()
+            app
+        | false ->
+            app
 
+    let private configureMiddleware (app: WebApplication) : WebApplication =
         app.UseHttpsRedirection()
         app.UseAuthorization()
-        app.MapControllers()
+        app.MapControllers() |> ignore
+        app
 
-        app.Run()
+    [<EntryPoint>]
+    let main args =
+        args
+        |> WebApplication.CreateBuilder
+        |> configureServices
+        |> fun builder -> builder.Build()
+        |> configureDevelopmentOpenApi
+        |> configureMiddleware
+        |> fun app -> app.Run()
 
         exitCode
