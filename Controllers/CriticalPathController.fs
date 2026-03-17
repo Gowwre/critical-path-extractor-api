@@ -23,6 +23,11 @@ open CriticalPathExtractor.Infrastructure
 [<Route("v1/critical-path")>]
 type CriticalPathController (logger : ILogger<CriticalPathController>) =
     inherit ControllerBase()
+    
+    static member private CreateObjectResult (statusCode: int) (content: obj) : ObjectResult =
+        let result = ObjectResult(content)
+        result.StatusCode <- Nullable(statusCode)
+        result
 
     /// <summary>
     /// Analyze a single project task graph
@@ -80,50 +85,28 @@ type CriticalPathController (logger : ILogger<CriticalPathController>) =
             
             let message = CpmEngine.getValidationErrorMessage validationError lang
             
-            let result = 
-                match validationError with
-                | Types.GraphTooLarge _ ->
-                    let r = ObjectResult({|
-                        error = {|
-                            code = errorCode
-                            message = message
-                            affected_tasks = affectedTasks
-                        |}
-                    |})
-                    r.StatusCode <- Nullable(413)
-                    r
-                | NegativeDuration _ ->
-                    let r = ObjectResult({|
-                        error = {|
-                            code = errorCode
-                            message = message
-                            affected_tasks = affectedTasks
-                        |}
-                    |})
-                    r.StatusCode <- Nullable(422)
-                    r
-                | _ ->
-                    BadRequestObjectResult({|
-                        error = {|
-                            code = errorCode
-                            message = message
-                            affected_tasks = affectedTasks
-                        |}
-                    |})
+            let errorContent = {|
+                error = {|
+                    code = errorCode
+                    message = message
+                    affected_tasks = affectedTasks
+                |}
+            |}
             
-            result :> IActionResult
+            match validationError with
+            | Types.GraphTooLarge _ -> CriticalPathController.CreateObjectResult 413 errorContent :> IActionResult
+            | NegativeDuration _ -> CriticalPathController.CreateObjectResult 422 errorContent :> IActionResult
+            | _ -> BadRequestObjectResult(errorContent) :> IActionResult
             
         | ex ->
             logger.LogError(ex, "Unexpected error during CPM analysis")
-            let result = ObjectResult({|
+            CriticalPathController.CreateObjectResult 500 {|
                 error = {|
                     code = "INTERNAL_ERROR"
                     message = Localization.getStringSimple lang MsgInternalError
                     affected_tasks = []
                 |}
-            |})
-            result.StatusCode <- Nullable(500)
-            result :> IActionResult
+            |} :> IActionResult
 
     /// <summary>
     /// Analyze multiple project task graphs in batch
@@ -163,12 +146,10 @@ type CriticalPathController (logger : ILogger<CriticalPathController>) =
             |}) :> IActionResult
         | ex ->
             logger.LogError(ex, "Unexpected error during batch CPM analysis")
-            let result = ObjectResult({|
+            CriticalPathController.CreateObjectResult 500 {|
                 error = {|
                     code = "INTERNAL_ERROR"
                     message = Localization.getStringSimple lang MsgInternalError
                     affected_tasks = []
                 |}
-            |})
-            result.StatusCode <- Nullable(500)
-            result :> IActionResult
+            |} :> IActionResult

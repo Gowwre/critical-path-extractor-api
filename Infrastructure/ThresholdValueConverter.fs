@@ -11,25 +11,22 @@ type ThresholdValueConverter() =
     override _.Read(reader: byref<Utf8JsonReader>, typeToConvert: Type, options: JsonSerializerOptions) =
         match reader.TokenType with
         | JsonTokenType.Number ->
-            let value = reader.GetDouble()
-            ThresholdValue.Number(value)
+            ThresholdValue.Number(reader.GetDouble())
         | JsonTokenType.StartObject ->
             let mutable absolute = None
             let mutable percentage = None
             
             while reader.Read() && reader.TokenType <> JsonTokenType.EndObject do
-                if reader.TokenType = JsonTokenType.PropertyName then
+                match reader.TokenType with
+                | JsonTokenType.PropertyName ->
                     let propertyName = reader.GetString()
                     reader.Read() |> ignore
                     
-                    match propertyName with
-                    | "absolute" ->
-                        if reader.TokenType = JsonTokenType.Number then
-                            absolute <- Some(reader.GetDouble())
-                    | "percentage" ->
-                        if reader.TokenType = JsonTokenType.Number then
-                            percentage <- Some(reader.GetDouble())
+                    match propertyName, reader.TokenType with
+                    | "absolute", JsonTokenType.Number -> absolute <- Some(reader.GetDouble())
+                    | "percentage", JsonTokenType.Number -> percentage <- Some(reader.GetDouble())
                     | _ -> ()
+                | _ -> ()
             
             ThresholdValue.Object({
                 absolute = absolute

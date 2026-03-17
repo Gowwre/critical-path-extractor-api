@@ -27,9 +27,11 @@ module Program =
         let app = builder.Build()
 
         // Configure OpenAPI and Scalar in development
-        if app.Environment.IsDevelopment() then
+        match app.Environment.IsDevelopment() with
+        | true ->
             app.MapOpenApi() |> ignore
             app.MapScalarApiReference() |> ignore
+        | false -> ()
 
         app.UseHttpsRedirection()
         app.UseAuthorization()

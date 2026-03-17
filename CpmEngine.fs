@@ -31,78 +31,81 @@ module CpmEngine =
         | _ -> raise (CpmValidationException (InvalidDurationUnit unit))
 
     let private validateTask (task: TaskRequest) (allTaskIds: Set<string>) =
-        if task.duration < 0.0 then
-            raise (CpmValidationException (NegativeDuration task.id))
+        match task.duration with
+        | d when d < 0.0 -> raise (CpmValidationException (NegativeDuration task.id))
+        | _ -> ()
         
         task.dependencies
         |> List.iter (fun depId ->
-            if not (Set.contains depId allTaskIds) then
-                raise (CpmValidationException (UnknownDependency (task.id, depId)))
+            match Set.contains depId allTaskIds with
+            | false -> raise (CpmValidationException (UnknownDependency (task.id, depId)))
+            | true -> ()
         )
         
-        if task.dependencies.Length > MAX_DEPENDENCIES_PER_TASK then
+        match task.dependencies.Length with
+        | len when len > MAX_DEPENDENCIES_PER_TASK ->
             raise (CpmValidationException (InvalidInput (sprintf "Task %s has too many dependencies (max: %d)" task.id MAX_DEPENDENCIES_PER_TASK)))
+        | _ -> ()
 
     let buildGraph (tasks: TaskRequest list) : Graph =
-        if tasks.IsEmpty then
-            raise (CpmValidationException EmptyTaskList)
-        
-        if tasks.Length > MAX_TASKS then
-            raise (CpmValidationException (GraphTooLarge tasks.Length))
-        
-        let taskIds = tasks |> List.map (fun t -> t.id)
-        let uniqueIds = Set.ofList taskIds
-        if uniqueIds.Count <> tasks.Length then
-            let duplicates = 
-                taskIds 
-                |> Seq.groupBy id 
-                |> Seq.filter (fun (_, items) -> Seq.length items > 1)
-                |> Seq.map fst
-                |> Seq.head
-            raise (CpmValidationException (DuplicateTaskId duplicates))
-        
-        tasks |> List.iter (fun t -> validateTask t uniqueIds)
-        
-        let nodes = 
-            tasks 
-            |> List.map (fun t -> t.id, mapTaskToNode t)
-            |> Map.ofList
-        
-        let nodesWithSuccessors = 
-            tasks
-            |> List.fold (fun acc task ->
-                task.dependencies
-                |> List.fold (fun innerAcc depId ->
-                    match Map.tryFind depId innerAcc with
-                    | Some node -> 
-                        let updatedNode = { node with successors = task.id :: node.successors }
-                        Map.add depId updatedNode innerAcc
-                    | None -> innerAcc
-                ) acc
-            ) nodes
-        
-        let startNodes = 
-            tasks 
-            |> List.filter (fun t -> t.dependencies.IsEmpty)
-            |> List.map (fun t -> t.id)
-        
-        let endNodes =
-            nodesWithSuccessors
-            |> Map.toList
-            |> List.filter (fun (_, node) -> node.successors.IsEmpty)
-            |> List.map fst
-        
-        let edges = 
-            tasks
-            |> List.collect (fun task -> 
-                task.dependencies 
-                |> List.map (fun dep -> (dep, task.id))
-            )
-        
-        { nodes = nodesWithSuccessors
-          edges = edges
-          start_nodes = startNodes
-          end_nodes = endNodes }
+        match tasks with
+        | [] -> raise (CpmValidationException EmptyTaskList)
+        | _ when tasks.Length > MAX_TASKS -> raise (CpmValidationException (GraphTooLarge tasks.Length))
+        | _ ->
+            let taskIds = tasks |> List.map (fun t -> t.id)
+            let uniqueIds = Set.ofList taskIds
+            match uniqueIds.Count <> tasks.Length with
+            | true ->
+                let duplicates = 
+                    taskIds 
+                    |> Seq.groupBy id 
+                    |> Seq.filter (fun (_, items) -> Seq.length items > 1)
+                    |> Seq.map fst
+                    |> Seq.head
+                raise (CpmValidationException (DuplicateTaskId duplicates))
+            | false ->
+                tasks |> List.iter (fun t -> validateTask t uniqueIds)
+                
+                let nodes = 
+                    tasks 
+                    |> List.map (fun t -> t.id, mapTaskToNode t)
+                    |> Map.ofList
+                
+                let nodesWithSuccessors = 
+                    tasks
+                    |> List.fold (fun acc task ->
+                        task.dependencies
+                        |> List.fold (fun innerAcc depId ->
+                            match Map.tryFind depId innerAcc with
+                            | Some node -> 
+                                let updatedNode = { node with successors = task.id :: node.successors }
+                                Map.add depId updatedNode innerAcc
+                            | None -> innerAcc
+                        ) acc
+                    ) nodes
+                
+                let startNodes = 
+                    tasks 
+                    |> List.filter (fun t -> t.dependencies.IsEmpty)
+                    |> List.map (fun t -> t.id)
+                
+                let endNodes =
+                    nodesWithSuccessors
+                    |> Map.toList
+                    |> List.filter (fun (_, node) -> node.successors.IsEmpty)
+                    |> List.map fst
+                
+                let edges = 
+                    tasks
+                    |> List.collect (fun task -> 
+                        task.dependencies 
+                        |> List.map (fun dep -> (dep, task.id))
+                    )
+                
+                { nodes = nodesWithSuccessors
+                  edges = edges
+                  start_nodes = startNodes
+                  end_nodes = endNodes }
 
     let topologicalSort (graph: Graph) : string list =
         let inDegree = 
@@ -128,8 +131,9 @@ module CpmEngine =
                 let newDegree = currentInDegree.[succId] - 1
                 currentInDegree <- Map.add succId newDegree currentInDegree
                 
-                if newDegree = 0 then
-                    queue.Enqueue(succId)
+                match newDegree with
+                | 0 -> queue.Enqueue(succId)
+                | _ -> ()
             )
         
         if result.Count <> graph.nodes.Count then
@@ -151,12 +155,9 @@ module CpmEngine =
             let node = nodes.[nodeId]
             
             let es =
-                if node.dependencies.IsEmpty then
-                    0.0
-                else
-                    node.dependencies
-                    |> List.map (fun depId -> nodes.[depId].ef)
-                    |> List.max
+                match node.dependencies with
+                | [] -> 0.0
+                | deps -> deps |> List.map (fun depId -> nodes.[depId].ef) |> List.max
             
             let ef = es + node.duration
             
@@ -179,12 +180,9 @@ module CpmEngine =
             let node = updatedNodes.[nodeId]
             
             let lf =
-                if node.successors.IsEmpty then
-                    projectDuration
-                else
-                    node.successors
-                    |> List.map (fun succId -> updatedNodes.[succId].ls)
-                    |> List.min
+                match node.successors with
+                | [] -> projectDuration
+                | succs -> succs |> List.map (fun succId -> updatedNodes.[succId].ls) |> List.min
             
             let ls = lf - node.duration
             let totalFloat = ls - node.es
@@ -196,27 +194,24 @@ module CpmEngine =
         updatedNodes
 
     let getRiskLabel (pathFloat: float) (threshold: float) : string =
-        if threshold = 0.0 then
-            "high"
-        else
+        match threshold with
+        | 0.0 -> "high"
+        | _ ->
             let ratio = pathFloat / threshold
-            if ratio > 0.75 then
-                "low"
-            elif ratio >= 0.50 then
-                "medium"
-            else
-                "high"
+            match ratio with
+            | r when r > 0.75 -> "low"
+            | r when r >= 0.50 -> "medium"
+            | _ -> "high"
 
     let findCriticalPath (nodes: Map<string, TaskNode>) (startNodes: string list) (endNodes: string list) : string list =
         let endSet = Set.ofList endNodes
         
         let rec findCriticalPathRecursive (current: string) : string list option =
             let node = nodes.[current]
-            if node.total_float > 0.0 then
-                None
-            elif Set.contains current endSet then
-                Some [current]
-            else
+            match node.total_float, Set.contains current endSet with
+            | tf, _ when tf > 0.0 -> None
+            | _, true -> Some [current]
+            | _, false ->
                 node.successors
                 |> List.tryPick (fun succ ->
                     match findCriticalPathRecursive succ with
@@ -235,12 +230,18 @@ module CpmEngine =
         (includeAllPaths: bool)
         : NearCriticalPath list =
         
-        if threshold <= 0.0 && not includeAllPaths then
-            []
-        else
+        match threshold <= 0.0, includeAllPaths with
+        | true, false -> []
+        | _ ->
             let pathFloatByNode = 
                 nodes
                 |> Map.map (fun _ node -> node.total_float)
+            
+            let shouldIncludePath (minFloat: float) =
+                match includeAllPaths, minFloat > 0.0, minFloat <= threshold with
+                | true, true, _ -> true
+                | false, true, true -> true
+                | _ -> false
             
             let paths = 
                 graph.start_nodes
@@ -251,34 +252,24 @@ module CpmEngine =
                         let newMinFloat = min currentMinFloat nodeFloat
                         let newPath = currentId :: currentPath
                         
-                        if node.successors.IsEmpty then
+                        match node.successors with
+                        | [] ->
                             let pathList = List.rev newPath
                             let pathDuration = 
                                 pathList 
                                 |> List.sumBy (fun id -> nodes.[id].duration)
                             
-                            if includeAllPaths then
-                                if newMinFloat > 0.0 then
-                                    [{
-                                        path = pathList
-                                        duration = pathDuration
-                                        float = newMinFloat
-                                        risk_label = getRiskLabel newMinFloat threshold
-                                    }]
-                                else
-                                    []
-                            else
-                                if newMinFloat > 0.0 && newMinFloat <= threshold then
-                                    [{
-                                        path = pathList
-                                        duration = pathDuration
-                                        float = newMinFloat
-                                        risk_label = getRiskLabel newMinFloat threshold
-                                    }]
-                                else
-                                    []
-                        else
-                            node.successors
+                            match shouldIncludePath newMinFloat with
+                            | true ->
+                                [{
+                                    path = pathList
+                                    duration = pathDuration
+                                    float = newMinFloat
+                                    risk_label = getRiskLabel newMinFloat threshold
+                                }]
+                            | false -> []
+                        | successors ->
+                            successors
                             |> List.collect (fun succId ->
                                 buildPaths succId newPath newMinFloat
                             )
@@ -295,10 +286,8 @@ module CpmEngine =
         (projectDuration: float) 
         : float =
         match thresholdValue with
-        | None ->
-            projectDuration * 0.20
-        | Some (Number value) ->
-            value
+        | None -> projectDuration * 0.20
+        | Some (Number value) -> value
         | Some (Object config) ->
             let absolute = config.absolute |> Option.defaultValue 0.0
             let percentage = 
@@ -306,34 +295,29 @@ module CpmEngine =
                 |> Option.map (fun p -> projectDuration * (p / 100.0))
                 |> Option.defaultValue 0.0
             
-            if absolute > 0.0 && percentage > 0.0 then
-                max absolute percentage
-            elif absolute > 0.0 then
-                absolute
-            elif percentage > 0.0 then
-                percentage
-            else
-                projectDuration * 0.20
+            match absolute > 0.0, percentage > 0.0 with
+            | true, true -> max absolute percentage
+            | true, false -> absolute
+            | false, true -> percentage
+            | false, false -> projectDuration * 0.20
 
     let detectDisconnectedSubgraphs (graph: Graph) (lang: LanguageCode) : Warning list =
-        if graph.start_nodes.IsEmpty then
-            [{
+        let disconnectedWarning = 
+            {
                 type_ = "disconnected_subgraph"
                 affected_tasks = []
                 message = Localization.getStringSimple lang MsgDisconnectedSubgraph
-            }]
-        elif graph.end_nodes.IsEmpty then
-            [{
-                type_ = "disconnected_subgraph"
-                affected_tasks = []
-                message = Localization.getStringSimple lang MsgDisconnectedSubgraph
-            }]
-        else
+            }
+        
+        match graph.start_nodes, graph.end_nodes with
+        | [], _ -> [disconnectedWarning]
+        | _, [] -> [disconnectedWarning]
+        | _, _ ->
             let reachableFromStart = 
                 let rec collectReachable nodeId visited =
-                    if Set.contains nodeId visited then
-                        visited
-                    else
+                    match Set.contains nodeId visited with
+                    | true -> visited
+                    | false ->
                         let node = graph.nodes.[nodeId]
                         node.successors
                         |> List.fold (fun acc succId ->
@@ -347,9 +331,9 @@ module CpmEngine =
             let allNodes = graph.nodes |> Map.toList |> List.map fst |> Set.ofList
             let disconnected = Set.difference allNodes reachableFromStart
             
-            if disconnected.IsEmpty then
-                []
-            else
+            match disconnected.IsEmpty with
+            | true -> []
+            | false ->
                 [{
                     type_ = "disconnected_subgraph"
                     affected_tasks = disconnected |> Set.toList
@@ -363,12 +347,12 @@ module CpmEngine =
             |> List.filter (fun (_, node) -> node.duration = 0.0)
             |> List.map fst
         
-        if zeroDurationTasks.IsEmpty then
-            []
-        else
+        match zeroDurationTasks with
+        | [] -> []
+        | tasks ->
             [{
                 type_ = "zero_duration_path"
-                affected_tasks = zeroDurationTasks
+                affected_tasks = tasks
                 message = Localization.getStringSimple lang MsgZeroDurationPath
             }]
 

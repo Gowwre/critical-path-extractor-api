@@ -47,24 +47,25 @@ module Localization =
     /// Get language from request (query param takes priority over header)
     /// </summary>
     let getLanguage (httpContext: HttpContext) : LanguageCode =
-        // Check query parameter first
-        let (querySuccess, queryValue) = httpContext.Request.Query.TryGetValue("lang")
-        if querySuccess then
-            parseLanguage (queryValue.ToString())
-        else
-            // Check Accept-Language header
-            let (headerSuccess, headerValue) = httpContext.Request.Headers.TryGetValue("Accept-Language")
-            if headerSuccess then
-                let langValue = headerValue.ToString()
-                // Parse first preferred language
+        let tryGetQuery () =
+            match httpContext.Request.Query.TryGetValue("lang") with
+            | true, v -> Some (parseLanguage (v.ToString()))
+            | false, _ -> None
+        
+        let tryGetHeader () =
+            match httpContext.Request.Headers.TryGetValue("Accept-Language") with
+            | true, v ->
                 let primaryLang = 
-                    langValue.Split(',')
+                    v.ToString().Split(',')
                     |> Array.tryHead
                     |> Option.map (fun s -> s.Trim().Split(';').[0])
                     |> Option.defaultValue "en"
-                parseLanguage primaryLang
-            else
-                defaultLanguage
+                Some (parseLanguage primaryLang)
+            | false, _ -> None
+        
+        tryGetQuery ()
+        |> Option.orElseWith tryGetHeader
+        |> Option.defaultValue defaultLanguage
     
     /// <summary>
     /// Get localized string with optional parameters
